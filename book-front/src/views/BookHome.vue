@@ -8,7 +8,6 @@
       </div>
       <div class="user-info">
         <span class="username-tag">当前账号：{{ username }}</span>
-        <button class="btn btn-danger" @click="logout">退出登录</button>
       </div>
     </header>
 
@@ -275,12 +274,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
-import { useRouter } from 'vue-router'
 
-const router = useRouter()
-
-// 全局配置
 const username = ref('zms')
 const loginTime = ref(new Date().toLocaleString())
 const currentPage = ref(1)
@@ -327,23 +321,60 @@ const totalStock = computed(() => {
   return bookList.value.reduce((sum, item) => sum + Number(item.stock), 0)
 })
 
-// 获取图书列表
-const getBookList = async () => {
-  try {
-    const res = await axios.get('/api/book', {
-      params: {
-        page: currentPage.value,
-        pageSize: pageSize.value,
-        book_name: searchName.value
-      }
+// 模拟数据（无需后端）
+const categories = ['文学', '历史', '科技', '教育', '小说', '计算机', '经济', '艺术', '哲学', '医学', '法律', '工程', '语言', '自然', '生活']
+const authors = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑一', '冯二', '陈明', '林华', '黄丽', '刘洋', '杨帆', '朱军', '秦刚', '韩梅', '李雷', '宋晓']
+const bookPrefixes = ['深入理解', '从零开始学', '实战指南', '精要解读', '入门到精通', '高级编程', '经典回顾', '前沿探索', '系统设计', '算法导论', '数据结构', '网络编程', '数据库原理', '人工智能', '机器学习', 'Python入门', 'Java核心技术', 'Vue3实战', 'React进阶', 'Node.js开发']
+const bookSuffixes = ['与实战', '完全手册', '权威指南', '详解', '基础教程', '案例分析', '原理剖析', '设计与实现', '最佳实践', '进阶之路', '项目实战', '开发笔记', '性能优化', '架构设计', '源码分析', '应用实践', '运维指南', '安全研究', '云计算', '大数据']
+const remarks = ['经典好书', '推荐阅读', '专业教材', '畅销书', '获奖作品', '专家推荐', '年度好书', '必读经典', '实用工具书', '参考书目']
+
+function generateMockBooks(count) {
+  const books = []
+  const usedNames = new Set()
+  for (let i = 1; i <= count; i++) {
+    let name
+    do {
+      const prefix = bookPrefixes[Math.floor(Math.random() * bookPrefixes.length)]
+      const suffix = bookSuffixes[Math.floor(Math.random() * bookSuffixes.length)]
+      name = prefix + suffix
+    } while (usedNames.has(name))
+    usedNames.add(name)
+    books.push({
+      id: i,
+      book_name: name,
+      author: authors[Math.floor(Math.random() * authors.length)],
+      category: categories[Math.floor(Math.random() * categories.length)],
+      price: parseFloat((Math.random() * 100 + 19.9).toFixed(1)),
+      stock: Math.floor(Math.random() * 200 + 5),
+      isbn: '978-' + Math.floor(10000000 + Math.random() * 90000000),
+      remark: remarks[Math.floor(Math.random() * remarks.length)]
     })
-    if (res.data.code === 200) {
-      bookList.value = res.data.data.list
-      total.value = res.data.data.total
-    }
-  } catch (error) {
-    ElMessage.error('获取图书列表失败')
   }
+  return books
+}
+
+// 本地存储模拟数据库
+let mockBooks = []
+try {
+  const stored = localStorage.getItem('mockBooks')
+  if (stored) {
+    mockBooks = JSON.parse(stored)
+  } else {
+    mockBooks = generateMockBooks(100)
+    localStorage.setItem('mockBooks', JSON.stringify(mockBooks))
+  }
+} catch {
+  mockBooks = generateMockBooks(100)
+}
+
+// 获取图书列表（本地数据）
+const getBookList = async () => {
+  let filtered = mockBooks.filter(b =>
+    b.book_name && b.book_name.includes(searchName.value)
+  )
+  total.value = filtered.length
+  const offset = (currentPage.value - 1) * pageSize.value
+  bookList.value = filtered.slice(offset, offset + pageSize.value)
 }
 
 // 搜索
@@ -377,33 +408,33 @@ const openEditDialog = (row) => {
   dialogVisible.value = true
 }
 
-// 保存图书
+// 保存图书（本地存储）
 const saveBook = async () => {
-  try {
-    if (formData.value.id) {
-      await axios.put(`/api/book/${formData.value.id}`, formData.value)
+  if (formData.value.id) {
+    // 编辑
+    const idx = mockBooks.findIndex(b => b.id === formData.value.id)
+    if (idx !== -1) {
+      mockBooks[idx] = { ...formData.value }
       ElMessage.success('编辑成功')
-    } else {
-      await axios.post('/api/book', formData.value)
-      ElMessage.success('新增成功')
     }
-    dialogVisible.value = false
-    getBookList()
-  } catch (error) {
-    ElMessage.error('保存失败')
+  } else {
+    // 新增
+    const newId = mockBooks.length > 0 ? Math.max(...mockBooks.map(b => b.id)) + 1 : 1
+    mockBooks.push({ ...formData.value, id: newId })
+    ElMessage.success('新增成功')
   }
+  localStorage.setItem('mockBooks', JSON.stringify(mockBooks))
+  dialogVisible.value = false
+  getBookList()
 }
 
-// 删除图书
+// 删除图书（本地存储）
 const deleteBook = async (row) => {
   if (confirm('确定要删除吗？')) {
-    try {
-      await axios.delete(`/api/book/${row.id}`)
-      ElMessage.success('删除成功')
-      getBookList()
-    } catch (error) {
-      ElMessage.error('删除失败')
-    }
+    mockBooks = mockBooks.filter(b => b.id !== row.id)
+    localStorage.setItem('mockBooks', JSON.stringify(mockBooks))
+    ElMessage.success('删除成功')
+    getBookList()
   }
 }
 
@@ -458,14 +489,7 @@ const removeAvatar = () => {
   ElMessage.success('头像已删除')
 }
 
-// 退出登录
-const logout = () => {
-  if (confirm('确定要退出登录吗？')) {
-    localStorage.removeItem('token')
-    router.push('/login')
-    ElMessage.success('退出成功')
-  }
-}
+// 退出登录（已移除，无需后端）
 
 // 初始化
 onMounted(() => {
