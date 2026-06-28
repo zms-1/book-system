@@ -81,7 +81,6 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    // 云端部署时后端和前端同域，直接用相对路径
     const res = await axios.post('/api/login', loginForm)
     
     if (res.data.code === 200) {
