@@ -1,3 +1,8 @@
+name = "book-system"
+compatibility_date = "2026-06-28"
+
+[assets]
+directory = "./book-front/dist"
+
 [build]
 command = "cd book-front && npm install && npm run build"
-output_dir = "book-front/dist"
